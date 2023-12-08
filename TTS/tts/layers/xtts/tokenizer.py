@@ -12,8 +12,9 @@ from spacy.lang.ar import Arabic
 from spacy.lang.en import English
 from spacy.lang.es import Spanish
 from spacy.lang.ja import Japanese
-from spacy.lang.zh import Chinese
+from spacy.lang.fa import Persian
 from tokenizers import Tokenizer
+#from hazm import *
 
 from TTS.tts.layers.xtts.zh_num2words import TextNorm as zh_num2words
 
@@ -27,6 +28,8 @@ def get_spacy_lang(lang):
         return Arabic()
     elif lang == "es":
         return Spanish()
+    elif lang== "fa":
+        return Persian()
     else:
         # For most languages, Enlish does the job
         return English()
@@ -169,6 +172,17 @@ _abbreviations = {
         (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
         for x in [
             # There are not many common abbreviations in Arabic as in English.
+        ]
+    ],
+    "fa": [
+        (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
+        for x in [
+           ("جمهوری اسلامی ایران", "ج.ا.ا"),
+           ("خنده", "خخخخ"),
+           ("راهنمایی و رانندگی", "راهور"),
+           ("برگام", "برگام"),
+           ("هام", "ام"),
+
         ]
     ],
     "zh": [
@@ -336,6 +350,19 @@ _symbols_multilingual = {
             ("°", " درجة "),
         ]
     ],
+    "fa": [
+        # Arabic
+        (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
+        for x in [
+            ("&", " و "),
+            ("@", " در "),
+            ("%", " درصد "),
+            ("#", " هش "),
+            ("$", " دلار "),
+            ("£", " پوند "),
+            ("°", " درجه "),
+        ]
+    ],
     "zh": [
         # Chinese
         (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
@@ -444,6 +471,7 @@ _ordinal_re = {
     "it": re.compile(r"([0-9]+)(º|°|ª|o|a|i|e)"),
     "pl": re.compile(r"([0-9]+)(º|ª|st|nd|rd|th)"),
     "ar": re.compile(r"([0-9]+)(ون|ين|ث|ر|ى)"),
+    "fa": re.compile(r"([0-9]+)(یکم|دوم|سوم|چهارم|پنجم|ششم|هفتم|هشتم|نهم)"),
     "cs": re.compile(r"([0-9]+)\.(?=\s|$)"),  # In Czech, a dot is often used after the number to indicate ordinals.
     "ru": re.compile(r"([0-9]+)(-й|-я|-е|-ое|-ье|-го)"),
     "nl": re.compile(r"([0-9]+)(de|ste|e)"),
@@ -498,6 +526,7 @@ def _expand_currency(m, lang="en", currency="USD"):
         "ru": ", ",
         "nl": ", ",
         "ar": ", ",
+        "fa": ", ",
         "tr": ", ",
         "hu": ", ",
         "ko": ", ",
@@ -604,6 +633,7 @@ class VoiceBpeTokenizer:
             "pl": 224,
             "zh": 82,
             "ar": 166,
+            "fa": 250,
             "cs": 186,
             "ru": 182,
             "nl": 251,
@@ -628,7 +658,7 @@ class VoiceBpeTokenizer:
             )
 
     def preprocess_text(self, txt, lang):
-        if lang in {"ar", "cs", "de", "en", "es", "fr", "hu", "it", "nl", "pl", "pt", "ru", "tr", "zh", "ko"}:
+        if lang in {"ar", "fa", "cs", "de", "en", "es", "fr", "hu", "it", "nl", "pl", "pt", "ru", "tr", "zh", "ko"}:
             txt = multilingual_cleaners(txt, lang)
             if lang == "zh":
                 txt = chinese_transliterate(txt)
@@ -636,9 +666,6 @@ class VoiceBpeTokenizer:
                 txt = korean_transliterate(txt)
         elif lang == "ja":
             txt = japanese_cleaners(txt, self.katsu)
-        elif lang == "hi":
-            # @manmay will implement this
-            txt = basic_cleaners(txt)
         else:
             raise NotImplementedError(f"Language '{lang}' is not supported.")
         return txt
@@ -728,6 +755,14 @@ def test_expand_numbers_multilingual():
         ("كان هناك 50 جنديًا.", "كان هناك خمسون جنديًا.", "ar"),
         # ("ستكون النتيجة $20 يا سيد.", 'ستكون النتيجة عشرون دولار يا سيد.', 'ar'), # $ and € are mising from num2words
         # ("ستكون النتيجة 20€ يا سيد.", 'ستكون النتيجة عشرون يورو يا سيد.', 'ar'),
+        # Persian Farsi 
+        ("در 12.5 ثانیه", "در دوازده و پنح ثانیه", "fa"),
+        ("50 سرباز بودن ", "پنجاه سزباز بودن", "fa"),
+        ("این اولین آزمون است", "این آزمون اول است", "fa"),
+        (" این 20$ میشود قربان", "این بیست دلار میشود آقا", "fa"),
+        ("این بیست یورو میشود قربان", "این بیست یورو میشود آقا", "fa"),
+        ("این 20.15 یورو میشود قربان", "این بیست یورو و پانزده سنت میشود آقا", "fa"),
+        ("این 100000.5 است", "این صد هزار و نیم هست", "fa"),
         # Czech
         ("Za 12,5 vteřiny.", "Za dvanáct celá pět vteřiny.", "cs"),
         ("Bylo tam 50 vojáků.", "Bylo tam padesát vojáků.", "cs"),
@@ -798,6 +833,9 @@ def test_abbreviations_multilingual():
         # Russian
         ("Здравствуйте Г-н Иванов.", "Здравствуйте господин Иванов.", "ru"),
         ("Д-р Смирнов здесь, чтобы увидеть вас.", "доктор Смирнов здесь, чтобы увидеть вас.", "ru"),
+        # Persian Farsi
+        ("سلام جناب اسمیت.", "سلام آقای اسمیت", "fa"),
+        ("دکتر جونز ایناهاش ", "دکتر جونر اینجاست", "fa"),
         # Turkish
         ("Merhaba B. Yılmaz.", "Merhaba bay Yılmaz.", "tr"),
         ("Dr. Ayşe burada.", "doktor Ayşe burada.", "tr"),
@@ -826,6 +864,7 @@ def test_symbols_multilingual():
         ("Ik heb 14% batterij", "Ik heb 14 procent batterij", "nl"),
         ("Ik zie je @ het feest", "Ik zie je bij het feest", "nl"),
         ("لدي 14% في البطارية", "لدي 14 في المئة في البطارية", "ar"),
+        ("من 14% باتری دارم", "من 14 درصد باتری دارم", "fa"),
         ("我的电量为 14%", "我的电量为 14 百分之", "zh"),
         ("Pilim %14 dolu.", "Pilim yüzde 14 dolu.", "tr"),
         ("Az akkumulátorom töltöttsége 14%", "Az akkumulátorom töltöttsége 14 százalék", "hu"),
